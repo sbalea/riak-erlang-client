@@ -69,7 +69,7 @@
                 connects=0, % number of successful connects
                 failed=[],  % breakdown of failed connects
                 reconnect_interval=?FIRST_RECONNECT_INTERVAL}).
--record(request, {ref :: reference(), msg :: rpb_req(), from, ctx :: ctx(), timeout :: integer(),
+-record(request, {ref :: integer(), msg :: rpb_req(), from, ctx :: ctx(), timeout :: integer(),
                   tref :: reference() | undefined }).
 
 -type address() :: string() | atom() | ip_address().
@@ -466,6 +466,9 @@ default_timeout(OpTimeout) ->
 
 %% @private
 init([Address, Port, Options]) ->
+    %% Set global ref counter to 0
+    erlang:put(ref_counter, 0),
+    
     %% Schedule a reconnect as the first action.  If the server is up then 
     %% the handle_info(reconnect) will run before any requests can be sent.
     State = parse_options(Options, #state{address = Address, 
@@ -820,13 +823,20 @@ send_mapred_req(Pid, MapRed, ClientPid) ->
 %% @private
 %% Make a new request that can be sent or queued
 new_request(Msg, From, Timeout) ->
-    Ref = make_ref(),
+    Ref = get_ref(),
     #request{ref = Ref, msg = Msg, from = From, timeout = Timeout,
              tref = create_req_timer(Timeout, Ref)}.
 new_request(Msg, From, Timeout, Context) ->
-    Ref = make_ref(),
+    Ref = get_ref(),
     #request{ref =Ref, msg = Msg, from = From, ctx = Context, timeout = Timeout,
              tref = create_req_timer(Timeout, Ref)}.
+
+%% @private
+%% Get current ref_counter and increment
+get_ref() ->
+    Ref = erlang:get(ref_counter),
+    erlang:put(ref_counter, (Ref + 1) band 16#ffffffff),
+    Ref.
 
 %% @private
 %% Create a request timer if desired, otherwise return undefined.
@@ -1456,7 +1466,7 @@ live_node_tests() ->
                  %% Would really like this in a nested {setup, blah} structure
                  %% but eunit does not allow
                  {ok, Pid} = start_link(?TEST_IP, ?TEST_PORT),
-                 Pid ! {req_timeout, make_ref()},
+                 Pid ! {req_timeout, 0},
                  ?assertEqual(pong, ping(Pid))
              end)},
 
