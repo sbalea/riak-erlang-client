@@ -44,18 +44,18 @@
 -define(PB_ALLOW_MULT, <<"allow_mult">>).
 
 %% Create an iolist of msg code and protocol buffer message
-encode(Msg) when is_atom(Msg) ->
-    [msg_code(Msg)];
-encode(Msg) when is_tuple(Msg) ->
+encode(Msg, Ref) when is_atom(Msg) ->
+    [msg_code(Msg) | <<Ref:32>>];
+encode(Msg, Ref) when is_tuple(Msg) ->
     MsgType = element(1, Msg),
-    [msg_code(MsgType) | riakclient_pb:iolist(MsgType, Msg)].
+    [msg_code(MsgType), <<Ref:32>> | riakclient_pb:iolist(MsgType, Msg)].
  
 %% Decode a protocol buffer message given its type - if no bytes
 %% return the atom for the message code
-decode(MsgCode, <<>>) ->
-    msg_type(MsgCode);
-decode(MsgCode, MsgData) ->
-    riakclient_pb:decode(msg_type(MsgCode), MsgData).
+decode(MsgCode, <<Ref:32>>) ->
+    {Ref, msg_type(MsgCode)};
+decode(MsgCode, <<Ref:32, MsgData/binary>>) ->
+    {Ref, riakclient_pb:decode(msg_type(MsgCode), MsgData)}.
 
 msg_type(0) -> rpberrorresp;
 msg_type(1) -> rpbpingreq;

@@ -537,7 +537,7 @@ handle_info({tcp_closed, _Socket}, State) ->
 %% it should drop through and be ignored.
 handle_info({tcp, Sock, Data}, State=#state{sock = Sock, active = Active}) ->
     [MsgCode|MsgData] = Data,
-    Resp = riakc_pb:decode(MsgCode, MsgData),
+    {Ref, Resp} = riakc_pb:decode(MsgCode, MsgData),
     case Resp of
         #rpberrorresp{} ->
             NewState1 = maybe_reply(on_error(Active, Resp, State)),
@@ -925,7 +925,7 @@ increase_reconnect_interval(State) ->
 %% Send a request to the server and prepare the state for the response
 %% @private
 send_request(Request, State) when State#state.active =:= undefined ->
-    Pkt = riakc_pb:encode(Request#request.msg),
+    Pkt = riakc_pb:encode(Request#request.msg, Request#request.ref),
     gen_tcp:send(State#state.sock, Pkt),
     maybe_reply(after_send(Request, State#state{active = Request})).
 
