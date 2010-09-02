@@ -537,7 +537,7 @@ handle_info({tcp_closed, _Socket}, State) ->
 %% it should drop through and be ignored.
 handle_info({tcp, Sock, Data}, State=#state{sock = Sock, active = Active}) ->
     [MsgCode|MsgData] = Data,
-    {Ref, Resp} = riakc_pb:decode(MsgCode, MsgData),
+    {_Ref, Resp} = riakc_pb:decode(MsgCode, MsgData),
     case Resp of
         #rpberrorresp{} ->
             NewState1 = maybe_reply(on_error(Active, Resp, State)),
